@@ -1,95 +1,90 @@
+# chatserver.py
 import socket
 import threading
-
+import sys
+from time import time
 class ChatServer:
-    def __init__(self, host, port):
-        self.host = host
+    def __init__(self, port):
+        self.host = 'localhost'
         self.port = port
-        self.clients = {}  # Dictionary to store connected clients {client_id: client_socket}
-        self.lock = threading.Lock()  # Lock to synchronize access to clients dictionary
-
-    def start(self):
+        self.clients = {}
+        self.last_seen = {}  # Keep track of when we last saw a client alive
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_socket.bind((self.host, self.port))
         self.server_socket.listen(5)
-        print("Chat server started on {}:{}".format(self.host, self.port))
+        self.check_clients_interval = 30  # Interval for checking inactive clients in seconds
+        print("Server listening on port", port)
+
+    def broadcast_client_list(self):
+        client_list = " ".join(self.clients.keys())
+        for client in self.clients.values():
+            client.send(("List " + client_list).encode())
+
+    def handle_client(self, client_socket, client_address):
+        client_id = client_socket.recv(1024).decode().split()[1]  # Expecting "Connect clientid"
+        self.clients[client_id] = client_socket
+        self.last_seen[client_id] = time()  # Record the initial "alive" status
+        print(f"{client_id} connected.")
+        self.broadcast_client_list()
 
         while True:
-            client_socket, client_address = self.server_socket.accept()
-            threading.Thread(target=self.handle_client, args=(client_socket,)).start()
+            try:
+                msg = client_socket.recv(1024).decode()
+                if msg.startswith("@Quit"):
+                    break
+                elif msg.startswith("@List"):
+                    client_socket.send(("List " + " ".join(self.clients.keys())).encode())
+                elif msg.startswith("Alive "):
+                    alive_client_id = msg.split()[1]
+                    if alive_client_id == client_id:  # Ensure the message is from the correct client
+                        self.last_seen[client_id] = time()  # Update last seen time
+                        print(f"Received alive signal from {client_id}")
+                else:
+                    parts = msg.split(' ', 1)
+                    dest_id= parts[0].replace("(", "").replace(")", "")
+                    print(dest_id)
+                    message = "".join(parts[1:])
+                    print(message)
+                    if dest_id in self.clients:
+                        self.clients[dest_id].send(message.encode())
+                    else:
+                        client_socket.send(f"{dest_id} is offline.".encode())
+            except:
+                break
 
-    def handle_client(self, client_socket):
+        client_socket.close()
+        del self.clients[client_id]
+        del self.last_seen[client_id]  # Clean up last seen entry
+
+        self.broadcast_client_list()
+        print(f"{client_id} disconnected.")
+
+    def start_periodic_client_check(self):
+        threading.Timer(self.check_clients_interval, self.start_periodic_client_check).start()
+        self.remove_inactive_clients()
+
+    def remove_inactive_clients(self):
+        current_time = time()
+        inactive_clients = [client_id for client_id, last_seen in self.last_seen.items() if current_time - last_seen > 61]
+        
+        for client_id in inactive_clients:
+            print(f"Removing inactive client: {client_id}")
+            del self.clients[client_id]
+            del self.last_seen[client_id]
+        
+        if inactive_clients:
+            self.broadcast_client_list()
+
+    def run(self):
+        self.start_periodic_client_check()
         try:
             while True:
-                message = client_socket.recv(1024).decode().strip()
-                if not message:
-                    break
-
-                if message.startswith("Connect"):
-                    client_id = message.split()[1]
-                    self.add_client(client_id, client_socket)
-                elif message == "@Quit":
-                    self.remove_client_by_socket(client_socket)
-                    break
-                elif message.startswith("Quit"):
-                    client_id = message.split()[1]
-                    self.remove_client(client_id)
-                    break
-                elif message == "@List" or message == "List":
-                    client_socket.sendall(self.get_online_clients().encode())
-                elif message.startswith("(") and ")" in message:
-                    target_client_id, msg = message.split(")", 1)
-                    self.send_message(target_client_id[1:], client_socket, msg[1:])
-                else:
-                    client_socket.sendall(b"Invalid command\n")
-        except Exception as e:
-            print("Error handling client:", e)
-        finally:
-            client_socket.close()
-
-    def add_client(self, client_id, client_socket):
-        with self.lock:
-            self.clients[client_id] = client_socket
-            print("Client {} joined".format(client_id))
-            self.broadcast_online_clients()
-
-    def remove_client(self, client_id):
-        with self.lock:
-            if client_id in self.clients:
-                del self.clients[client_id]
-                print("Client {} left".format(client_id))
-                self.broadcast_online_clients()
-
-    def remove_client_by_socket(self, client_socket):
-        with self.lock:
-            for client_id, socket in self.clients.items():
-                if socket == client_socket:
-                    del self.clients[client_id]
-                    print("Client {} left".format(client_id))
-                    self.broadcast_online_clients()
-                    break
-
-    def send_message(self, target_client_id, source_client_socket, message):
-        with self.lock:
-            if target_client_id in self.clients:
-                target_socket = self.clients[target_client_id]
-                target_socket.sendall("[{}] {}: {}".format(source_client_socket.getpeername(), source_client_socket.getpeername(), message).encode())
-            else:
-                source_client_socket.sendall(b"Target client is not online\n")
-
-    def get_online_clients(self):
-        with self.lock:
-            return ", ".join(self.clients.keys())
-
-    def broadcast_online_clients(self):
-        online_clients = self.get_online_clients()
-        with self.lock:
-            for client_socket in self.clients.values():
-                client_socket.sendall(("Online clients: {}\n".format(online_clients)).encode())
-
+                client_socket, client_address = self.server_socket.accept()
+                threading.Thread(target=self.handle_client, args=(client_socket, client_address)).start()
+        except KeyboardInterrupt:
+            print("Server shutting down.")
+            self.server_socket.close()
+            sys.exit()
 
 if __name__ == "__main__":
-    HOST = '127.0.0.1'
-    PORT = 8080
-    server = ChatServer(HOST, PORT)
-    server.start()
+    ChatServer(8080).run()
