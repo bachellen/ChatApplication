@@ -45,6 +45,6 @@ if __name__ == "__main__":
         message = input("Enter message (format: (target_client_id) message): ")
         if message.lower() == "quit":
             break
-        client.send_message(*message.split(maxsplit=1))
+        client.send_message("-SERVER-", message)
 
     client.socket.close()

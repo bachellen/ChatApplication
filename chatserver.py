@@ -46,8 +46,8 @@ class ChatServer:
                 elif message.startswith("(") and ")" in message:
                     target_client_id, msg = message.split(")", 1)
                     self.send_message(target_client_id[1:], client_id, msg[1:])
-                elif message == "LIST":
-                    client_socket.sendall(self.get_online_clients().encode())
+                elif target_client_id == "-SERVER-":
+                    self.handle_server_message(client_id, message)
                 else:
                     client_socket.sendall(b"Invalid command\n")
         except Exception as e:
@@ -93,6 +93,10 @@ class ChatServer:
                 target_socket.sendall(f"({source_client_id}) {message}".encode())
             else:
                 self.clients[source_client_id][0].sendall(b"Target client is not online\n")
+
+    def handle_server_message(self, client_id, message):
+        # Handle messages from the server if necessary
+        pass
 
     def get_online_clients(self):
         with self.lock:
