@@ -25,12 +25,12 @@ class ChatClient:
         threading.Thread(target=self.send_alive_messages).start()
 
     def send_message(self, target_client_id, message):
-        self.socket.sendall(f"({target_client_id}) {message}".encode())
+        self.socket.sendall(f"(-SERVER-) ({target_client_id}) {message}".encode())
 
     def send_alive_messages(self):
         while True:
             if self.alive_interval:
-                self.socket.sendall("Alive".encode())
+                self.socket.sendall("(-SERVER-) Alive".encode())
                 time.sleep(self.alive_interval)
 
 if __name__ == "__main__":
@@ -43,8 +43,9 @@ if __name__ == "__main__":
 
     while True:
         message = input("Enter message (format: (target_client_id) message): ")
-        if message.lower() == "quit":
+        if message.lower() == "@quit":
+            client.socket.sendall("@Quit".encode())
             break
-        client.send_message("-SERVER-", message)
+        client.send_message(*message.split(maxsplit=1))
 
     client.socket.close()
