@@ -19,8 +19,8 @@ class ChatServer:
             threading.Thread(target=self.handle_client, args=(client_socket,)).start()
 
     def handle_client(self, client_socket):
-        while True:
-            try:
+        try:
+            while True:
                 message = client_socket.recv(1024).decode().strip()
                 if not message:
                     break
@@ -42,11 +42,10 @@ class ChatServer:
                     self.send_message(target_client_id[1:], client_socket, msg[1:])
                 else:
                     client_socket.sendall(b"Invalid command\n")
-            except Exception as e:
-                print("Error handling client:", e)
-                break
-
-        client_socket.close()
+        except Exception as e:
+            print("Error handling client:", e)
+        finally:
+            client_socket.close()
 
     def add_client(self, client_id, client_socket):
         with self.lock:
@@ -91,6 +90,6 @@ class ChatServer:
 
 if __name__ == "__main__":
     HOST = '127.0.0.1'
-    PORT = 8081
+    PORT = 8080
     server = ChatServer(HOST, PORT)
     server.start()
