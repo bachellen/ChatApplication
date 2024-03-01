@@ -35,7 +35,7 @@ class ChatClient:
 
 if __name__ == "__main__":
     SERVER_HOST = '127.0.0.1'
-    SERVER_PORT = 8080
+    SERVER_PORT = 8081
     CLIENT_ID = input("Enter client id: ")
 
     client = ChatClient(SERVER_HOST, SERVER_PORT, CLIENT_ID)
