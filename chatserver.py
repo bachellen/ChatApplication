@@ -24,7 +24,6 @@ class ChatServer:
         client_id = client_socket.recv(1024).decode().split()[1]  # Expecting "Connect clientid"
         self.clients[client_id] = client_socket
         self.last_seen[client_id] = time()  # Record the initial "alive" status
-       #print(f"{client_id} connected.")
         print("{} connected.".format(client_id))
         self.broadcast_client_list()
 
@@ -52,8 +51,15 @@ class ChatServer:
                         self.clients[dest_id_padded].send(formatted_message.encode())
                     else:
                         client_socket.send(f"{dest_id_padded} is offline.".encode())
+                
+                self.last_seen[client_id] = time()
+                if client_id not in self.clients:  # If for any reason the client was removed
+                    self.clients[client_id] = client_socket
+                    self.broadcast_client_list()  # Update all clients with the new list
 
-            except:
+
+            except Exception as e:
+                print(f"Error with client {client_id}: {e}")
                 break
 
         client_socket.close()
@@ -69,7 +75,7 @@ class ChatServer:
 
     def remove_inactive_clients(self):
         current_time = time()
-        inactive_clients = [client_id for client_id, last_seen in self.last_seen.items() if current_time - last_seen > 61]
+        inactive_clients = [client_id for client_id, last_seen in self.last_seen.items() if current_time - last_seen > 60]
         
         for client_id in inactive_clients:
             print(f"Removing inactive client: {client_id}")
@@ -91,5 +97,5 @@ class ChatServer:
             sys.exit()
 
 if __name__ == "__main__":
-    ChatServer(8080).run()
+    ChatServer(8081).run()
     ######

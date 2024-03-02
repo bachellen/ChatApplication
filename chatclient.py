@@ -17,7 +17,7 @@ class ChatClient:
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.connect((self.host, self.port))
         self.socket.send(f"Connect {self.client_id}".encode())
-        print("You will be offline if you are being inactive for 60 seconds.")
+        print("You will go offline if you are being inactive for 60 seconds.")
         threading.Thread(target=self.listen_for_messages).start()
         threading.Thread(target=self.conditional_keep_alive).start()
 
@@ -27,8 +27,21 @@ class ChatClient:
             print(message)
             if message.startswith("List"):
                 print("Online clients:", message[5:])
+    
+    def ensure_connection(self):
+        """Ensure the client is connected before sending a message."""
+        try:
+            # Attempt to send a small data packet to check connection
+            self.socket.send(b'')
+        except (BrokenPipeError, OSError):
+            print("Reconnecting to the server...")
+            self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.socket.connect((self.host, self.port))
+            self.socket.send(f"Connect {self.client_id}".encode())
+            print("Reconnected.")
 
     def send(self, message):
+        self.ensure_connection()
         if message.startswith("("):
             try:
                 dest_id, message_content = message[1:].split(') ', 1)
@@ -69,8 +82,7 @@ class ChatClient:
             if time() - self.last_message_time <= self.alive_interval:
                 self.send(f"Alive {self.client_id}")
             else :
-                print("Your session is inactive")
-                # self.close()
+                print("Your session has been marked as inactive due to prolonged inactivity. Please reconnect if you wish to continue")
 
             
 
@@ -88,7 +100,7 @@ if __name__ == "__main__":
     while True:
         client_id = input("Enter client ID: ")
         if len(client_id.encode()) <= 8:
-            client = ChatClient('localhost', 8080, client_id)
+            client = ChatClient('localhost', 8081, client_id)
             break
         else:
             print("Error: Client ID must be no more than 8 bytes.")
