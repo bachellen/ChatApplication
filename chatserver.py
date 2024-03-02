@@ -24,7 +24,8 @@ class ChatServer:
         client_id = client_socket.recv(1024).decode().split()[1]  # Expecting "Connect clientid"
         self.clients[client_id] = client_socket
         self.last_seen[client_id] = time()  # Record the initial "alive" status
-        print(f"{client_id} connected.")
+       #print(f"{client_id} connected.")
+        print("{} connected.".format(client_id))
         self.broadcast_client_list()
 
         while True:
@@ -41,9 +42,11 @@ class ChatServer:
                         print(f"Received alive signal from {client_id}")
                 else:
                     parts = msg.split(' ', 1)
-                    dest_id= parts[0].replace("(", "").replace(")", "")
+                    dest_id= parts[0]
+                    src_id = parts[1]
+                    message  = " ".join(parts[2:])
                     print(dest_id)
-                    message = "".join(parts[1:])
+                    print(src_id)
                     print(message)
                     if dest_id in self.clients:
                         self.clients[dest_id].send(message.encode())
