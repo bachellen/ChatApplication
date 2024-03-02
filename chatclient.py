@@ -49,6 +49,12 @@ class ChatClient:
 
     def send(self, message):
         self.ensure_connection()
+        if not (message.startswith("@") or message.startswith("(")):
+            print("Invalid command or message format. Use one of the following formats:\n"
+                "1. @Quit\n"
+                "2. @List\n"
+                "3. (otherclientid) message-statement")
+            return
         if message.startswith("("):
             try:
                 dest_id, message_content = message[1:].split(') ', 1)

@@ -41,7 +41,7 @@ class ChatServer:
                         if alive_client_id == client_id:  # Ensure the message is from the correct client
                             self.last_seen[client_id] = time()  # Update last seen time
                             print(f"Received alive signal from {client_id}")
-                    else:
+                    elif msg.startswith("(") and ")" in msg:
                         # Assuming the first 16 bytes are dest_id (8 bytes) and src_id (8 bytes), both padded
                         dest_id_padded = msg[:8].strip()
                         src_id_padded = msg[8:16].strip()
@@ -53,6 +53,13 @@ class ChatServer:
                             self.clients[dest_id_padded].send(formatted_message.encode())
                         else:
                             client_socket.send(f"{dest_id_padded} is offline.".encode())
+                    else:
+                        # Invalid command or message format
+                        error_message = "Invalid command or message format. Use one of the following formats:\n" \
+                                        "1. @Quit\n" \
+                                        "2. @List\n" \
+                                        "3. (otherclientid) message-statement"
+                        client_socket.send(error_message.encode())
                     
                     self.last_seen[client_id] = time()
                     if client_id not in self.clients:  # If for any reason the client was removed
@@ -61,7 +68,7 @@ class ChatServer:
 
 
                 except Exception as e:
-                    print(f"Error with client {client_id}: {e}")
+                    print(f"Error handling client {client_id}: {e}")
                     break
 
             client_socket.close()
