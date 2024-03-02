@@ -23,10 +23,17 @@ class ChatClient:
 
     def listen_for_messages(self):
         while True:
-            message = self.socket.recv(1024).decode()
-            print(message)
-            if message.startswith("List"):
-                print("Online clients:", message[5:])
+            try:
+                message = self.socket.recv(1024).decode()
+                print(message)
+                if message.startswith("List"):
+                  print("Online clients:", message[5:])
+            except OSError as e:
+              print("Socket error, shutting down:", e)
+              break
+            except Exception as e:
+              print("An unexpected error occurred:", e)
+              break
     
     def ensure_connection(self):
         """Ensure the client is connected before sending a message."""
@@ -119,4 +126,5 @@ if __name__ == "__main__":
 
     except KeyboardInterrupt:
         client.close()
+        print("Client shutdown gracefully.")
 ####
