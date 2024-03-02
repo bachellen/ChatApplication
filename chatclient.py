@@ -29,44 +29,38 @@ class ChatClient:
                 print("Online clients:", message[5:])
 
     def send(self, message):
-        
-        
         if message.startswith("("):
-              # Splitting the message into destination and message content
-            parts = message.split(' ', 1)
-
-            if len(parts) != 2:
-                print("Invalid message format. Please provide a message in the format '(dest_id) message'.")
+            try:
+                dest_id, message_content = message[1:].split(') ', 1)
+            except ValueError:
+                print("Invalid message format. Use '(dest_id) Your message'.")
                 return
 
-            dest_id = parts[0].strip("()")  # Extracting the destination ID
-            message = parts[1]
-
-            if len(dest_id) > self.MAX_NAME_LENGTH:
-                print(f"Invalid destination ID. The destination ID cannot exceed {self.MAX_NAME_LENGTH} characters.")
+            if len(dest_id.encode()) > self.MAX_NAME_LENGTH or len(self.client_id.encode()) > self.MAX_NAME_LENGTH:
+                print("Error: Destination ID or Client ID exceeds the 8 byte limit.")
                 return
 
-            if len(message) > self.MAX_MESSAGE_CONTENT_LENGTH:
-                print(f"Invalid message. The message content cannot exceed {self.MAX_MESSAGE_CONTENT_LENGTH} characters.")
+            # Padding the destination ID and client ID to ensure they are exactly 8 bytes
+            dest_id_padded = dest_id.ljust(self.MAX_NAME_LENGTH)[:self.MAX_NAME_LENGTH]
+            client_id_padded = self.client_id.ljust(self.MAX_NAME_LENGTH)[:self.MAX_NAME_LENGTH]
+
+            # Construct the complete message for sending
+            complete_message = f"{dest_id_padded}{client_id_padded}{message_content}"
+
+            if len(complete_message.encode()) > self.MAX_MESSAGE_LENGTH:
+                print("Error: Complete message exceeds the 255 byte limit.")
                 return
 
-    # Padding the destination ID if it is less than 8 bytes
-            padded_dest_id = dest_id.ljust(self.MAX_NAME_LENGTH)[:self.MAX_NAME_LENGTH]
+            self.socket.send(complete_message.encode())
+            self.last_message_time = time()
+        else:
+            # Handle non-standard messages (e.g., Alive, Quit) without padding
+            if len(message.encode()) > self.MAX_MESSAGE_LENGTH:
+                print("Error: Message exceeds the 255 byte limit.")
+                return
+            self.socket.send(message.encode())
+            self.last_message_time = time()
 
-    # Trimming the message content if it exceeds 239 bytes
-            trimmed_message = message[:self.MAX_MESSAGE_CONTENT_LENGTH]
-
-    # Constructing the complete message string
-            complete_message = padded_dest_id + self.client_id +" "+ trimmed_message + "\0"
-            message= complete_message
-
-    # Sending the message
-    # Your implementation to send the message goes here
-            print(f"Sending message: {message}")
-
-
-        self.socket.send(message.encode())
-        self.last_message_time = time()  # Update the last message time
 
     def conditional_keep_alive(self):
         """Checks if an "Alive" message needs to be sent based on client activity."""
@@ -76,7 +70,7 @@ class ChatClient:
                 self.send(f"Alive {self.client_id}")
             else :
                 print("Your session is inactive")
-                self.close()
+                # self.close()
 
             
 
@@ -111,8 +105,6 @@ if __name__ == "__main__":
             else :
                 client.send(message)
 
-            # else: 
-            #     print ("format")
     except KeyboardInterrupt:
         client.close()
 ####

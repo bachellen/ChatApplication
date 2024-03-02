@@ -41,17 +41,18 @@ class ChatServer:
                         self.last_seen[client_id] = time()  # Update last seen time
                         print(f"Received alive signal from {client_id}")
                 else:
-                    parts = msg.split(' ', 1)
-                    dest_id= parts[0]
-                    src_id = parts[1]
-                    message  = " ".join(parts[2:])
-                    print(dest_id)
-                    print(src_id)
-                    print(message)
-                    if dest_id in self.clients:
-                        self.clients[dest_id].send(message.encode())
+                    # Assuming the first 16 bytes are dest_id (8 bytes) and src_id (8 bytes), both padded
+                    dest_id_padded = msg[:8].strip()
+                    src_id_padded = msg[8:16].strip()
+                    message_content = msg[16:]  # The actual message content starts after the first 16 bytes
+
+                    if dest_id_padded in self.clients:
+                        # Forward the message, now including the source ID for context
+                        formatted_message = f"From {src_id_padded}: {message_content}"
+                        self.clients[dest_id_padded].send(formatted_message.encode())
                     else:
-                        client_socket.send(f"{dest_id} is offline.".encode())
+                        client_socket.send(f"{dest_id_padded} is offline.".encode())
+
             except:
                 break
 
