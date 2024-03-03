@@ -47,7 +47,8 @@ class ChatClient:
                 else:
                     print(message)
             except OSError as e:
-              print("Socket error, shutting down:", e)
+              sys.exit()
+            #   print("Socket error, shutting down:", e)
               break
             except Exception as e:
               print("An unexpected error occurred:", e)
@@ -87,10 +88,10 @@ class ChatClient:
 
             # Padding the destination ID and client ID to ensure they are exactly 8 bytes
             dest_id_padded = dest_id.ljust(self.MAX_NAME_LENGTH)[:self.MAX_NAME_LENGTH]
-            client_id_padded = self.client_id.ljust(self.MAX_NAME_LENGTH)[:self.MAX_NAME_LENGTH]
+            src_id_padded = self.client_id.ljust(self.MAX_NAME_LENGTH)[:self.MAX_NAME_LENGTH]
 
             # Construct the complete message for sending
-            complete_message = f"{dest_id_padded}{client_id_padded}{message_content}"
+            complete_message = f"{dest_id_padded}{src_id_padded}{message_content}"
 
             self.socket.send(complete_message.encode())
             self.last_message_time = time()
@@ -136,7 +137,7 @@ if __name__ == "__main__":
     while True:
         client_id = input("Enter client ID: ")
         if len(client_id.encode()) <= 8:
-            client = ChatClient('localhost', 8080, client_id)
+            client = ChatClient('localhost', 8081, client_id)
             break
         else:
             print("Error: Client ID must be no more than 8 bytes.")
@@ -161,6 +162,5 @@ if __name__ == "__main__":
         client.close()
         print("Client shutdown gracefully.")
     except SystemExit:
-        print("Exiting...")
         sys.exit()
 ####

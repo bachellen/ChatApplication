@@ -152,7 +152,7 @@ class ChatServer:
             sys.exit()
 
 if __name__ == "__main__":
-    server = ChatServer(8080)
+    server = ChatServer(8081)
     try:
         server.run()
     except KeyboardInterrupt:
