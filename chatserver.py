@@ -12,7 +12,7 @@ class ChatServer:
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_socket.bind((self.host, self.port))
         self.server_socket.listen(5)
-        self.check_clients_interval = 30  # Checks for inactive clients every 30 seconds.
+        self.check_clients_interval = 5  # Checks for inactive clients every 30 seconds.
         print("Server listening on port", port)
 
     def broadcast_client_list(self):
@@ -55,7 +55,7 @@ class ChatServer:
                         break
                     elif msg.startswith("@List"):
                         client_socket.send(("List " + " ".join(self.clients.keys())).encode())
-                    elif msg.startswith("Alive "):
+                    elif msg.startswith("Alive"):
                         alive_client_id = msg.split()[1]
                         if alive_client_id == client_id:  # Ensure the message is from the correct client
                             self.last_seen[client_id] = time()  # Update last seen time
@@ -101,8 +101,10 @@ class ChatServer:
         except Exception as e:
             print(f"Error handling client {client_id}: {e}")
         finally:
-             if client_id and client_id in self.clients:
+             if client_id in self.clients:
+                client_socket.close()
                 del self.clients[client_id]
+                del self.last_seen[client_id] 
                 print(f"{client_id} disconnected.")
 
     def start_periodic_client_check(self):
@@ -133,7 +135,7 @@ class ChatServer:
             sys.exit()
 
 if __name__ == "__main__":
-    server = ChatServer(8080)
+    server = ChatServer(8081)
     try:
         server.run()
     except KeyboardInterrupt:

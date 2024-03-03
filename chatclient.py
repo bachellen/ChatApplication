@@ -67,8 +67,8 @@ class ChatClient:
 
     def send(self, message):
         self.ensure_connection()
-        if not (message.startswith("@") or message.startswith("(")):
-            print("here")
+        if not (message.startswith("@") or message.startswith("(")) or message.startswith('Alive'):
+            print("From client")
             print("Invalid command or message format. Use one of the following formats:\n"
                 "1. @Quit\n"
                 "2. @List\n"
@@ -108,14 +108,15 @@ class ChatClient:
 
     def conditional_keep_alive(self):
         """Checks if an "Alive" message needs to be sent based on client activity."""
+        inactive = False
         while True:
             sleep(self.alive_interval)  # Wait for the specified interval
-            if time() - self.last_message_time <= self.alive_interval:
+            if time() - self.last_message_time <= self.alive_interval :
                 self.send(f"Alive {self.client_id}")
-            elif time() - self.last_message_time > self.alive_interval:
+                inactive = False
+            elif time() - self.last_message_time > self.alive_interval and not inactive:
                 print("Your session has been marked as inactive due to prolonged inactivity. Please reconnect if you wish to continue")
-                self.send("@Inactive")
-                return
+                inactive = True
 
             
 
@@ -133,7 +134,7 @@ if __name__ == "__main__":
     while True:
         client_id = input("Enter client ID: ")
         if len(client_id.encode()) <= 8:
-            client = ChatClient('localhost', 8080, client_id)
+            client = ChatClient('localhost', 8081, client_id)
             break
         else:
             print("Error: Client ID must be no more than 8 bytes.")
