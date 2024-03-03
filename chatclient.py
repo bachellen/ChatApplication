@@ -67,13 +67,10 @@ class ChatClient:
 
     def send(self, message):
         self.ensure_connection()
-        if not (message.startswith("@") or message.startswith("(")) or message.startswith('Alive'):
-            print("From client")
-            print("Invalid command or message format. Use one of the following formats:\n"
-                "1. @Quit\n"
-                "2. @List\n"
-                "3. (otherclientid) message-statement")
-            return
+        # if not (message.startswith("Quit") or message.startswith("(")) or message.startswith('Alive') or message=="List":
+        #     print("From client")
+
+        #     return
         if message.startswith("("):
             try:
                 dest_id, message_content = message[1:].split(') ', 1)
@@ -121,10 +118,15 @@ class ChatClient:
             
 
     def close(self):
-        self.send(f"@Quit")
-        self.socket.close()
-        print("Disconnected from the server.")
-    
+        """Sends the Quit command to the server and shuts down the client application."""
+        try:
+            self.send(f"Quit {self.client_id}")
+            self.socket.close()  # Close the socket connection
+            print("Disconnected from the server. Exiting...")
+        except Exception as e:
+            print(f"Error during disconnection: {e}")
+        finally:
+            raise SystemExit  # Raise a custom exception to exit the program gracefully    
     def keep_alive(self):
         alive_message = f"Alive {self.client_id}"
         self.send(alive_message)
@@ -134,7 +136,7 @@ if __name__ == "__main__":
     while True:
         client_id = input("Enter client ID: ")
         if len(client_id.encode()) <= 8:
-            client = ChatClient('localhost', 8081, client_id)
+            client = ChatClient('localhost', 8080, client_id)
             break
         else:
             print("Error: Client ID must be no more than 8 bytes.")
@@ -146,12 +148,19 @@ if __name__ == "__main__":
             if message == "@Quit":
                 client.close()
                 break
-            elif message.startswith("@"):
+            elif message == "@List":
+                client.send("List")
+            elif message.startswith("("):
                 client.send(message)
-            else :
-                client.send(message)
-
+            else:            
+                print("Invalid command or message format. Use one of the following formats:\n"
+                "1. @Quit\n"
+                "2. @List\n"
+                "3. (otherclientid) message-statement")
     except KeyboardInterrupt:
         client.close()
         print("Client shutdown gracefully.")
+    except SystemExit:
+        print("Exiting...")
+        sys.exit()
 ####
