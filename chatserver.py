@@ -5,6 +5,8 @@ import sys
 from time import time
 class ChatServer:
     def __init__(self, port):
+        # Initialize the server with the specified port, prepare the server socket,
+        # and set up dictionaries to track clients and their last seen timestamps.
         self.host = 'localhost'
         self.port = port
         self.clients = {}
@@ -12,10 +14,12 @@ class ChatServer:
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_socket.bind((self.host, self.port))
         self.server_socket.listen(5)
-        self.check_clients_interval = 5  # Checks for inactive clients every 5 seconds.
+        self.check_clients_interval = 5   # Interval to check for inactive clients
         print("Server listening on port", port)
 
     def broadcast_client_list(self):
+        # Broadcast the list of online clients to all connected clients. If the list is too long,
+        # it is split into multiple messages.
         MAX_MESSAGE_LENGTH = 255  # Assuming this is the limit including command/type indicators
         MAX_CLIENT_ID_LENGTH = 8   # Assuming each client ID is up to 8 characters long
         # Additional characters in the message for indicating it's a part of the list and separators
@@ -40,19 +44,21 @@ class ChatServer:
                 client.send(message.encode())
 
     def handle_list(self,client_socket ):
+        # Similar to broadcast_client_list, but sends the list to a single requesting client.
+        # This is used when a client specifically requests the online client list.
+        # The logic for splitting the list into parts is the same as in broadcast_client_list.
+        # Repeated code could be refactored into a shared method for both use cases.
         MAX_MESSAGE_LENGTH = 255  # Assuming this is the limit including command/type indicators
         MAX_CLIENT_ID_LENGTH = 8   # Assuming each client ID is up to 8 characters long
         # Additional characters in the message for indicating it's a part of the list and separators
         MESSAGE_OVERHEAD = 10  # This includes characters for indicating list parts, separators, etc.
         MAX_LIST_CONTENT_LENGTH = MAX_MESSAGE_LENGTH - MESSAGE_OVERHEAD
 
-        # # Create a space-separated string of client IDs
-        # client_list = " ".join(self.clients.keys())
+        # Create a space-separated string of client IDs
         # Calculate how many client IDs can fit into one message
         """Send the list of online clients to a requesting client, in parts if necessary."""
         client_list = " ".join(self.clients.keys())
         num_ids_per_message = MAX_LIST_CONTENT_LENGTH // (MAX_CLIENT_ID_LENGTH + 1)
-
         client_ids = list(self.clients.keys())
         for i in range(0, len(client_ids), num_ids_per_message):
             chunk = client_ids[i:i + num_ids_per_message]
@@ -63,6 +69,9 @@ class ChatServer:
    
 
     def handle_client(self, client_socket, client_address):
+        # Handle incoming client messages in a dedicated thread. This method processes
+        # various commands from the client, such as Quit, List, and Alive, and forwards
+        # messages to other clients as needed.
         client_id = None
         try:
             client_id = client_socket.recv(1024).decode().split()[1]  # Expecting "Connect clientid"
@@ -75,10 +84,9 @@ class ChatServer:
                 try:
                     msg = client_socket.recv(1024).decode()
                     if msg.startswith("Quit"):
-                        break
+                        break # Client requested to end the session
                     elif msg=="List":
-                        self.handle_list(client_socket)
-                        # client_socket.send(("List " + " ".join(self.clients.keys())).encode())
+                        self.handle_list(client_socket)# Client requested the online client list
                     elif msg.startswith("Alive"):
                         alive_client_id = msg.split()[1]
                         if alive_client_id == client_id:  # Ensure the message is from the correct client
@@ -125,10 +133,13 @@ class ChatServer:
                 print(f"{client_id} disconnected.")
 
     def start_periodic_client_check(self):
+        # Periodically checks for inactive clients and removes them from the online list.
+        # This helps ensure that the list of online clients is accurate.
         threading.Timer(self.check_clients_interval, self.start_periodic_client_check).start()
         self.remove_inactive_clients()
 
     def remove_inactive_clients(self):
+        # Identify and remove clients that haven't sent an Alive message within the expected interval.
         current_time = time()
         inactive_clients = [client_id for client_id, last_seen in self.last_seen.items() if current_time - last_seen > 60]
         
@@ -141,6 +152,7 @@ class ChatServer:
             self.broadcast_client_list()
 
     def run(self):
+        # Main loop to accept and handle incoming client connections.
         self.start_periodic_client_check()
         try:
             while True:

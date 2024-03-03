@@ -6,6 +6,9 @@ from time import time, sleep
 
 class ChatClient:
     def __init__(self, host, port, client_id):
+        # Initialize client with server address, port, and client's unique ID.
+        # Set up socket connection to the server and send initial connect message.
+        self.MAX_MESSAGE_LENGTH = 255
         self.MAX_MESSAGE_LENGTH = 255
         self.MAX_NAME_LENGTH = 8
         self.MAX_MESSAGE_CONTENT_LENGTH = 239
@@ -13,15 +16,18 @@ class ChatClient:
         self.port = port
         self.client_id = client_id
         self.last_message_time = time() 
-        self.alive_interval = 60
+        self.alive_interval = 60 # Time interval to check alive messages.
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.connect((self.host, self.port))
         self.socket.send(f"Connect {self.client_id}".encode())
         print("You will go offline if you are being inactive for 60 seconds.")
+        # Start threads for listening to messages and sending alive signals.
         threading.Thread(target=self.listen_for_messages).start()
         threading.Thread(target=self.conditional_keep_alive).start()
 
     def listen_for_messages(self):
+        # Listen for messages from the server and handle them accordingly.
+        # This includes handling segmented list of online clients.
         full_client_list = []  # Initialize an empty list to accumulate client IDs
         expecting_more = False  # Flag to track whether more list parts are expected
         while True:
@@ -48,7 +54,6 @@ class ChatClient:
                     print(message)
             except OSError as e:
               sys.exit()
-            #   print("Socket error, shutting down:", e)
               break
             except Exception as e:
               print("An unexpected error occurred:", e)
@@ -67,18 +72,16 @@ class ChatClient:
             print("Reconnected.")
 
     def send(self, message):
+    # Send a message to the server, handling different message formats.
         self.ensure_connection()
-        # if not (message.startswith("Quit") or message.startswith("(")) or message.startswith('Alive') or message=="List":
-        #     print("From client")
-
-        #     return
         if message.startswith("("):
+        # Handling direct messages to other clients, including validation.
             try:
                 dest_id, message_content = message[1:].split(') ', 1)
             except ValueError:
                 print("Invalid message format. Use '(Destination ID) Your message'.")
                 return
-            
+            # Validate and pad destination and source IDs.
             if len(dest_id.encode()) > self.MAX_NAME_LENGTH :
                 print("Error: Destination ID exceeds the 8 byte limit.")
                 return            
@@ -86,7 +89,7 @@ class ChatClient:
                 print("Error: Message Content exceeds the 239 byte limit.")
                 return
 
-            # Padding the destination ID and client ID to ensure they are exactly 8 bytes
+            # Padding the destination ID and source ID to ensure they are exactly 8 bytes
             dest_id_padded = dest_id.ljust(self.MAX_NAME_LENGTH)[:self.MAX_NAME_LENGTH]
             src_id_padded = self.client_id.ljust(self.MAX_NAME_LENGTH)[:self.MAX_NAME_LENGTH]
 
@@ -113,6 +116,7 @@ class ChatClient:
                 self.send(f"Alive {self.client_id}")
                 inactive = False
             elif time() - self.last_message_time > self.alive_interval and not inactive:
+                # Mark the session as inactive if no messages have been sent recently.
                 print("Your session has been marked as inactive due to prolonged inactivity. Please reconnect if you wish to continue")
                 inactive = True
 
@@ -128,12 +132,15 @@ class ChatClient:
             print(f"Error during disconnection: {e}")
         finally:
             raise SystemExit  # Raise a custom exception to exit the program gracefully    
+        
     def keep_alive(self):
+        #Send Alive message
         alive_message = f"Alive {self.client_id}"
         self.send(alive_message)
         threading.Timer(60, self.keep_alive).start()
 
 if __name__ == "__main__":
+    # Main loop to handle client initialization and user input.
     while True:
         client_id = input("Enter client ID: ")
         if len(client_id.encode()) <= 8:
@@ -142,7 +149,6 @@ if __name__ == "__main__":
         else:
             print("Error: Client ID must be no more than 8 bytes.")
     
-
     try:
         while True:
             message = input()
