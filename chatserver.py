@@ -12,7 +12,7 @@ class ChatServer:
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_socket.bind((self.host, self.port))
         self.server_socket.listen(5)
-        self.check_clients_interval = 30  # Interval for checking inactive clients in seconds
+        self.check_clients_interval = 30  # Checks for inactive clients every 30 seconds.
         print("Server listening on port", port)
 
     def broadcast_client_list(self):
@@ -41,7 +41,14 @@ class ChatServer:
                         if alive_client_id == client_id:  # Ensure the message is from the correct client
                             self.last_seen[client_id] = time()  # Update last seen time
                             print(f"Received alive signal from {client_id}")
-                    elif msg.startswith("(") and ")" in msg:
+                    elif msg.startswith("@"):
+                        # Invalid command or message format
+                        error_message = "Invalid command or message format. Use one of the following formats:\n" \
+                                        "1. @Quit\n" \
+                                        "2. @List\n" \
+                                        "3. (otherclientid) message-statement"
+                        client_socket.send(error_message.encode())
+                    else :
                         # Assuming the first 16 bytes are dest_id (8 bytes) and src_id (8 bytes), both padded
                         dest_id_padded = msg[:8].strip()
                         src_id_padded = msg[8:16].strip()
@@ -53,13 +60,6 @@ class ChatServer:
                             self.clients[dest_id_padded].send(formatted_message.encode())
                         else:
                             client_socket.send(f"{dest_id_padded} is offline.".encode())
-                    else:
-                        # Invalid command or message format
-                        error_message = "Invalid command or message format. Use one of the following formats:\n" \
-                                        "1. @Quit\n" \
-                                        "2. @List\n" \
-                                        "3. (otherclientid) message-statement"
-                        client_socket.send(error_message.encode())
                     
                     self.last_seen[client_id] = time()
                     if client_id not in self.clients:  # If for any reason the client was removed
