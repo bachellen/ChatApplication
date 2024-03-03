@@ -22,12 +22,30 @@ class ChatClient:
         threading.Thread(target=self.conditional_keep_alive).start()
 
     def listen_for_messages(self):
+        full_client_list = []  # Initialize an empty list to accumulate client IDs
+        expecting_more = False  # Flag to track whether more list parts are expected
         while True:
             try:
                 message = self.socket.recv(1024).decode()
-                print(message)
                 if message.startswith("List"):
-                  print("Online clients:", message[5:])
+                    #Extract the client list part from the message
+                    parts = message.split(' ', 1)
+                    if len(parts) > 1:
+                        client_list_part = parts[1]
+                        if client_list_part.endswith(' More'):
+                            # If the message ends with ' More', remove it and set flag
+                            client_list_part = client_list_part[:-5]  # Remove ' More'
+                            expecting_more = True
+                        else:
+                            expecting_more = False
+                    # Split the client list part into individual IDs and add them to the full list
+                    full_client_list.extend(client_list_part.split())
+                    if not expecting_more:
+                        # If no more parts are expected, print the full list and reset for next time
+                        print("Online clients:", ", ".join(full_client_list))
+                        full_client_list = []  # Reset for next list
+                else:
+                    print(message)
             except OSError as e:
               print("Socket error, shutting down:", e)
               break
@@ -39,7 +57,7 @@ class ChatClient:
         """Ensure the client is connected before sending a message."""
         try:
             # Attempt to send a small data packet to check connection
-            self.socket.send(b'')
+            self.socket.send(b'.')
         except (BrokenPipeError, OSError):
             print("Reconnecting to the server...")
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -50,6 +68,7 @@ class ChatClient:
     def send(self, message):
         self.ensure_connection()
         if not (message.startswith("@") or message.startswith("(")):
+            print("here")
             print("Invalid command or message format. Use one of the following formats:\n"
                 "1. @Quit\n"
                 "2. @List\n"
@@ -59,11 +78,14 @@ class ChatClient:
             try:
                 dest_id, message_content = message[1:].split(') ', 1)
             except ValueError:
-                print("Invalid message format. Use '(dest_id) Your message'.")
+                print("Invalid message format. Use '(Destination ID) Your message'.")
                 return
-
-            if len(dest_id.encode()) > self.MAX_NAME_LENGTH or len(self.client_id.encode()) > self.MAX_NAME_LENGTH:
-                print("Error: Destination ID or Client ID exceeds the 8 byte limit.")
+            
+            if len(dest_id.encode()) > self.MAX_NAME_LENGTH :
+                print("Error: Destination ID exceeds the 8 byte limit.")
+                return            
+            if len(message_content.encode()) > self.MAX_MESSAGE_CONTENT_LENGTH:
+                print("Error: Message Content exceeds the 239 byte limit.")
                 return
 
             # Padding the destination ID and client ID to ensure they are exactly 8 bytes
@@ -73,14 +95,10 @@ class ChatClient:
             # Construct the complete message for sending
             complete_message = f"{dest_id_padded}{client_id_padded}{message_content}"
 
-            if len(complete_message.encode()) > self.MAX_MESSAGE_LENGTH:
-                print("Error: Complete message exceeds the 255 byte limit.")
-                return
-
             self.socket.send(complete_message.encode())
             self.last_message_time = time()
         else:
-            # Handle non-standard messages (e.g., Alive, Quit) without padding
+            # Handle non-standard messages (e.g., Alive, Quit,List) without padding
             if len(message.encode()) > self.MAX_MESSAGE_LENGTH:
                 print("Error: Message exceeds the 255 byte limit.")
                 return
@@ -94,8 +112,10 @@ class ChatClient:
             sleep(self.alive_interval)  # Wait for the specified interval
             if time() - self.last_message_time <= self.alive_interval:
                 self.send(f"Alive {self.client_id}")
-            else :
+            elif time() - self.last_message_time > self.alive_interval:
                 print("Your session has been marked as inactive due to prolonged inactivity. Please reconnect if you wish to continue")
+                self.send("@Inactive")
+                return
 
             
 
@@ -113,7 +133,7 @@ if __name__ == "__main__":
     while True:
         client_id = input("Enter client ID: ")
         if len(client_id.encode()) <= 8:
-            client = ChatClient('localhost', 8081, client_id)
+            client = ChatClient('localhost', 8080, client_id)
             break
         else:
             print("Error: Client ID must be no more than 8 bytes.")
