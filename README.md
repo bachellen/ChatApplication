@@ -18,7 +18,7 @@ This Chat Application enables real-time communication between multiple clients c
 
 1. **Clone the repository:**
    ```
-   git clone https://github.com/bachellen/assignment.git
+   git clone https://github.com/bachellen/ChatApplication.git
    ```
 2. **Navigate to the project directory:**
    ```
